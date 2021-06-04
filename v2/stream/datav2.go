@@ -22,7 +22,7 @@ import (
 var (
 	// DataStreamURL is the URL for the data websocket stream.
 	// The DATA_PROXY_WS environment variable overrides it.
-	DataStreamURL = "https://stream.data.alpaca.markets"
+	defaultDataStreamURL = "https://stream.data.alpaca.markets"
 
 	// MaxConnectionAttempts is the maximum number of retries for connecting to the websocket
 	MaxConnectionAttempts = 3
@@ -30,9 +30,9 @@ var (
 	messageBufferSize = 1000
 )
 
-var (
-	stream *datav2stream
-)
+//var (
+//	stream *datav2stream
+//)
 
 type datav2stream struct {
 	// opts
@@ -53,13 +53,16 @@ type datav2stream struct {
 	wsWriteMutex  sync.Mutex
 	wsReadMutex   sync.Mutex
 	handlersMutex sync.RWMutex
+
+
+	dataStreamUrl string
+	apiKey * common.APIKey
+
+	runPing int32
 }
 
 func newDatav2Stream() *datav2stream {
-	if s := os.Getenv("DATA_PROXY_WS"); s != "" {
-		DataStreamURL = s
-	}
-	stream = &datav2stream{
+	dstream := &datav2stream{
 		feed:          "iex",
 		authenticated: atomic.Value{},
 		tradeHandlers: make(map[string]func(trade Trade)),
@@ -67,10 +70,16 @@ func newDatav2Stream() *datav2stream {
 		barHandlers:   make(map[string]func(bar Bar)),
 	}
 
-	stream.authenticated.Store(false)
-	stream.closed.Store(false)
+	if s := os.Getenv("DATA_PROXY_WS"); s != "" {
+		dstream.dataStreamUrl = s
+	} else {
+		dstream.dataStreamUrl = defaultDataStreamURL
+	}
 
-	return stream
+	dstream.authenticated.Store(false)
+	dstream.closed.Store(false)
+
+	return dstream
 }
 
 func (s *datav2stream) useFeed(feed string) error {
@@ -202,17 +211,102 @@ func (s *datav2stream) ensureRunning() error {
 		return err
 	}
 	s.readerOnce.Do(func() {
-		go s.readForever()
+		go s.wrappedReadForever()
+		//		go s.streamPing()
 	})
 	return nil
 }
 
+func (s *datav2stream) wrappedReadForever() {
+
+	var retryBackoff = 5
+	var ctr = 1
+	for {
+		log.Printf("v2 stream read")
+		s.doReadForever()
+
+		// reconnect loop
+		for {
+			time.Sleep( time.Duration(retryBackoff * ctr) * time.Second)
+
+			log.Printf("v2 stream reconnect")
+			if err := s.connect(); err != nil {
+				log.Printf(err.Error())
+			} else {
+				break
+			}
+			ctr++
+
+			// 2-minute max
+			if ctr > 24 {
+				ctr = 24
+			}
+		}
+
+	}
+}
+
+func (s *datav2stream) streamPing() {
+
+	var doPing int32
+	for  {
+
+		time.Sleep(time.Duration(1) * time.Minute)
+
+		doPing = atomic.LoadInt32(&s.runPing)
+		if doPing == 1 {
+			err := s.conn.Ping(context.Background())
+			if err != nil {
+				log.Printf("stream ping failed")
+			} else {
+				log.Printf("stream pinged")
+			}
+		}
+	}
+}
+
+
+func (s *datav2stream) doReadForever() {
+
+	defer func() {
+
+		if s.conn != nil {
+			_ = s.conn.Close(websocket.StatusNormalClosure, "")
+			s.conn = nil
+		}
+		if err := recover(); err != nil {
+			//stack := make([]byte, 8192)
+			//stack = stack[:runtime.Stack(stack, false)]
+			//
+			//var strStack = string(stack)
+			//var stackLines = strings.Split(strStack, "\n")
+			//if len(stackLines) > 0 {
+			//	for _, l := range stackLines {
+			//		var l = strings.TrimSpace(l)
+			//		if len(l) == 0 {
+			//			break
+			//		}
+			//	}
+			//}
+			//
+			//strStack = strings.ReplaceAll(strStack, "\n", "\r\n")
+			//log.Printf(strStack)
+			log.Printf("v2 stream disconnected.")
+		}
+	}()
+
+	atomic.StoreInt32(&s.runPing, 1)
+	s.readForever()
+	atomic.StoreInt32(&s.runPing, 0)
+}
+
+
 func (s *datav2stream) connect() error {
 	// first close any previous connections
-	s.close(false)
+	_ = s.close(false)
 
 	s.authenticated.Store(false)
-	conn, err := openSocket(s.feed)
+	conn, err := openSocket(s.feed, s.dataStreamUrl)
 	if err != nil {
 		return err
 	}
@@ -235,15 +329,19 @@ func (s *datav2stream) connect() error {
 	return s.sub(trades, quotes, bars)
 }
 
+func (s *datav2stream) readInternal() (websocket.MessageType, []byte, error) {
+	s.wsReadMutex.Lock()
+	defer s.wsReadMutex.Unlock()
+	return s.conn.Read(context.TODO())
+}
+
 func (s *datav2stream) readForever() {
 	msgs := make(chan []byte, messageBufferSize)
 	defer close(msgs)
 	go s.handleMessages(msgs)
 
 	for {
-		s.wsReadMutex.Lock()
-		msgType, b, err := s.conn.Read(context.TODO())
-		s.wsReadMutex.Unlock()
+		msgType, b, err := s.readInternal()
 
 		if err != nil {
 			if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
@@ -544,8 +642,8 @@ func (s *datav2stream) auth() (err error) {
 
 	msg, err := msgpack.Marshal(map[string]string{
 		"action": "auth",
-		"key":    common.Credentials().ID,
-		"secret": common.Credentials().Secret,
+		"key":    s.apiKey.ID,
+		"secret": s.apiKey.Secret,
 	})
 	if err != nil {
 		return err
@@ -592,9 +690,9 @@ func (s *datav2stream) auth() (err error) {
 	return
 }
 
-func openSocket(feed string) (*websocket.Conn, error) {
+func openSocket(feed string, dsUrl string) (*websocket.Conn, error) {
 	scheme := "wss"
-	ub, _ := url.Parse(DataStreamURL)
+	ub, _ := url.Parse(dsUrl)
 	switch ub.Scheme {
 	case "http", "ws":
 		scheme = "ws"
@@ -635,4 +733,8 @@ func readConnected(conn *websocket.Conn) error {
 		return errors.New("missing connected message")
 	}
 	return nil
+}
+
+func (s *datav2stream) SetDataStreamUrl(dsUrl string) {
+	s.dataStreamUrl = dsUrl
 }

@@ -3,6 +3,7 @@ package alpaca
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -31,6 +32,8 @@ var (
 	apiVersion    = "v2"
 	clientTimeout = 10 * time.Second
 	do            = defaultDo
+	
+	apiWaitTime   int64 = 300
 )
 
 func defaultDo(c *Client, req *http.Request) (*http.Response, error) {
@@ -40,6 +43,12 @@ func defaultDo(c *Client, req *http.Request) (*http.Response, error) {
 		req.Header.Set("APCA-API-KEY-ID", c.credentials.ID)
 		req.Header.Set("APCA-API-SECRET-KEY", c.credentials.Secret)
 	}
+
+	df := time.Now().Sub(c.lastCall)
+	if df.Milliseconds() < apiWaitTime {
+		time.Sleep( time.Duration(apiWaitTime - df.Milliseconds()) * time.Millisecond )
+	}
+	c.lastCall = time.Now()
 
 	client := &http.Client{
 		Timeout: clientTimeout,
@@ -112,10 +121,16 @@ func (e *APIError) Error() string {
 // Client is an Alpaca REST API client
 type Client struct {
 	credentials *common.APIKey
+
+	lastCall  time.Time
 }
 
-func SetBaseUrl(baseUrl string) {
-	base = baseUrl
+func (c * Client) SetBaseUrl(b string ) {
+	base = b
+}
+
+func (c * Client) SetDataUrl(d string ) {
+	dataURL = d
 }
 
 // NewClient creates a new Alpaca client with specified
@@ -765,7 +780,7 @@ func (c *Client) GetCalendar(start, end *string) ([]CalendarDay, error) {
 
 // ListOrders returns the list of orders for an account,
 // filtered by the input parameters.
-func (c *Client) ListOrders(status *string, until *time.Time, limit *int, nested *bool) ([]Order, error) {
+func (c *Client) ListOrders(status *string, until *time.Time, after *time.Time, limit *int, nested *bool, syms * string) ([]Order, error) {
 	urlString := fmt.Sprintf("%s/%s/orders", base, apiVersion)
 	if nested != nil {
 		urlString += fmt.Sprintf("?nested=%v", *nested)
@@ -785,8 +800,16 @@ func (c *Client) ListOrders(status *string, until *time.Time, limit *int, nested
 		q.Set("until", until.Format(time.RFC3339))
 	}
 
+	if after != nil {
+		q.Set("after", after.Format(time.RFC3339))
+	}
+
 	if limit != nil {
 		q.Set("limit", strconv.FormatInt(int64(*limit), 10))
+	}
+
+	if syms != nil {
+		q.Set("symbols", *syms)
 	}
 
 	u.RawQuery = q.Encode()
@@ -814,13 +837,23 @@ func (c *Client) PlaceOrder(req PlaceOrderRequest) (*Order, error) {
 
 	resp, err := c.post(u, req)
 	if err != nil {
-		return nil, err
+		buf, e2 := json.Marshal(req)
+		if e2 != nil {
+			buf = []byte{}
+		}
+		errNew := errors.New( fmt.Sprintf("-->> JSON In: %s,   %s", string(buf), err.Error()) )
+		return nil, errNew
 	}
 
 	order := &Order{}
 
 	if err = unmarshal(resp, order); err != nil {
-		return nil, err
+		buf, e2 := json.Marshal(req)
+		if e2 != nil {
+			buf = []byte{}
+		}
+		errNew := errors.New( fmt.Sprintf("-->> JSON In: %s,   %s", string(buf), err.Error()) )
+		return nil, errNew
 	}
 
 	return order, nil
@@ -1138,8 +1171,8 @@ func GetCalendar(start, end *string) ([]CalendarDay, error) {
 // ListOrders returns the list of orders for an account,
 // filtered by the input parameters using the default
 // Alpaca client.
-func ListOrders(status *string, until *time.Time, limit *int, nested *bool) ([]Order, error) {
-	return DefaultClient.ListOrders(status, until, limit, nested)
+func ListOrders(status *string, until *time.Time, after *time.Time, limit *int, nested *bool) ([]Order, error) {
+	return DefaultClient.ListOrders(status, until, after, limit, nested, nil)
 }
 
 // PlaceOrder submits an order request to buy or sell an asset
@@ -1251,7 +1284,9 @@ func (bar *Bar) GetTime() time.Time {
 func verify(resp *http.Response) (err error) {
 	if resp.StatusCode >= http.StatusMultipleChoices {
 		var body []byte
-		defer resp.Body.Close()
+		defer func() {
+			_ = resp.Body.Close()
+		}()
 
 		body, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
@@ -1262,25 +1297,29 @@ func verify(resp *http.Response) (err error) {
 
 		err = json.Unmarshal(body, &apiErr)
 		if err != nil {
-			return fmt.Errorf("json unmarshal error: %s", err.Error())
+			return errors.New(fmt.Sprintf("--> JSON Marshalling Error: \n\n\n %s, %s", body, err.Error() ))
 		}
-		if err == nil {
-			err = &apiErr
-		}
+		err = &apiErr
 	}
 
 	return
 }
 
 func unmarshal(resp *http.Response, data interface{}) error {
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
 
-	return json.Unmarshal(body, data)
+	err = json.Unmarshal(body, data)
+	if err != nil {
+		return errors.New(fmt.Sprintf("--> JSON Error: %s, %s", body, err.Error() ))
+	}
+	return nil
 }
 
 // alias POR to avoid entering an infinite loop when MarshalJSON is called

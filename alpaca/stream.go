@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -25,14 +24,16 @@ const (
 	MaxConnectionAttempts = 3
 )
 
-var (
-	once      sync.Once
-	str       *Stream
-	streamUrl = ""
-
-	dataOnce sync.Once
-	dataStr  *Stream
-)
+//var (
+//	once      sync.Once
+//	str       *Stream
+//	streamUrl = ""
+//
+//	baseStream = ""
+//
+//	dataOnce sync.Once
+//	dataStr  *Stream
+//)
 
 type Stream struct {
 	sync.Mutex
@@ -40,11 +41,15 @@ type Stream struct {
 	conn                  *websocket.Conn
 	authenticated, closed atomic.Value
 	handlers              sync.Map
-	base                  string
+
+	apiKey *common.APIKey
+
+	baseUrl string
 }
 
 // Subscribe to the specified Alpaca stream channel.
-func (s *Stream) Subscribe(channel string, handler func(msg interface{})) (err error) {
+func (s *Stream) Subscribe(apiKey *common.APIKey, channel string, handler func(msg interface{})) (err error) {
+	s.apiKey = apiKey
 	switch {
 	case channel == TradeUpdates:
 		fallthrough
@@ -134,7 +139,7 @@ func (s *Stream) reconnect() error {
 	}
 	s.handlers.Range(func(key, value interface{}) bool {
 		// there should be no errors if we've previously successfully connected
-		s.sub(key.(string))
+		_ = s.sub(key.(string))
 		return true
 	})
 	return nil
@@ -166,19 +171,31 @@ func (s *Stream) start() {
 				switch {
 				case msg.Stream == TradeUpdates:
 					var tradeupdate TradeUpdate
-					json.Unmarshal(msgBytes, &tradeupdate)
+					err := json.Unmarshal(msgBytes, &tradeupdate)
+					if err != nil {
+						continue
+					}
 					handler(tradeupdate)
 				case strings.HasPrefix(msg.Stream, "Q."):
 					var quote StreamQuote
-					json.Unmarshal(msgBytes, &quote)
+					err := json.Unmarshal(msgBytes, &quote)
+					if err != nil {
+						continue
+					}
 					handler(quote)
 				case strings.HasPrefix(msg.Stream, "T."):
 					var trade StreamTrade
-					json.Unmarshal(msgBytes, &trade)
+					err := json.Unmarshal(msgBytes, &trade)
+					if err != nil {
+						continue
+					}
 					handler(trade)
 				case strings.HasPrefix(msg.Stream, "AM."):
 					var agg StreamAgg
-					json.Unmarshal(msgBytes, &agg)
+					err := json.Unmarshal(msgBytes, &agg)
+					if err != nil {
+						continue
+					}
 					handler(agg)
 
 				default:
@@ -255,12 +272,22 @@ func (s *Stream) auth() (err error) {
 		return
 	}
 
-	authRequest := ClientMsg{
-		Action: "authenticate",
-		Data: map[string]interface{}{
-			"key_id":     common.Credentials().ID,
-			"secret_key": common.Credentials().Secret,
-		},
+	var authRequest ClientMsg
+	if s.apiKey.OAuth != "" {
+		authRequest = ClientMsg{
+			Action: "authenticate",
+			Data: map[string]interface{}{
+				"oauth_token": s.apiKey.OAuth,
+			},
+		}
+	} else {
+		authRequest = ClientMsg{
+			Action: "authenticate",
+			Data: map[string]interface{}{
+				"key_id":     s.apiKey.ID,
+				"secret_key": s.apiKey.Secret,
+			},
+		}
 	}
 
 	if err = s.conn.WriteJSON(authRequest); err != nil {
@@ -270,8 +297,10 @@ func (s *Stream) auth() (err error) {
 	msg := ServerMsg{}
 
 	// ensure the auth response comes in a timely manner
-	s.conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-	defer s.conn.SetReadDeadline(time.Time{})
+	_ = s.conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	defer func() {
+		_ = s.conn.SetReadDeadline(time.Time{})
+	}()
 
 	if err = s.conn.ReadJSON(&msg); err != nil {
 		return
@@ -288,45 +317,45 @@ func (s *Stream) auth() (err error) {
 	return
 }
 
-// GetStream returns the singleton Alpaca stream structure.
-func GetStream() *Stream {
-	once.Do(func() {
-		str = &Stream{
-			authenticated: atomic.Value{},
-			handlers:      sync.Map{},
-			base:          base,
-		}
-
-		str.authenticated.Store(false)
-		str.closed.Store(false)
-	})
-
-	return str
-}
-
-func GetDataStream() *Stream {
-	dataOnce.Do(func() {
-		if s := os.Getenv("DATA_PROXY_WS"); s != "" {
-			streamUrl = s
-		} else {
-			streamUrl = dataURL
-		}
-		dataStr = &Stream{
-			authenticated: atomic.Value{},
-			handlers:      sync.Map{},
-			base:          streamUrl,
-		}
-
-		dataStr.authenticated.Store(false)
-		dataStr.closed.Store(false)
-	})
-
-	return dataStr
-}
+//// GetStream returns the singleton Alpaca stream structure.
+//func GetStream() *Stream {
+//	once.Do(func() {
+//		str = &Stream{
+//			authenticated: atomic.Value{},
+//			handlers:      sync.Map{},
+//			base:          baseStream,
+//		}
+//
+//		str.authenticated.Store(false)
+//		str.closed.Store(false)
+//	})
+//
+//	return str
+//}
+//
+//func GetDataStream() *Stream {
+//	dataOnce.Do(func() {
+//		if s := os.Getenv("DATA_PROXY_WS"); s != "" {
+//			streamUrl = s
+//		} else {
+//			streamUrl = dataURL
+//		}
+//		dataStr = &Stream{
+//			authenticated: atomic.Value{},
+//			handlers:      sync.Map{},
+//			base:          streamUrl,
+//		}
+//
+//		dataStr.authenticated.Store(false)
+//		dataStr.closed.Store(false)
+//	})
+//
+//	return dataStr
+//}
 
 func (s *Stream) openSocket() (*websocket.Conn, error) {
 	scheme := "wss"
-	ub, _ := url.Parse(s.base)
+	ub, _ := url.Parse(s.baseUrl)
 	if ub.Scheme == "http" {
 		scheme = "ws"
 	}
@@ -344,4 +373,21 @@ func (s *Stream) openSocket() (*websocket.Conn, error) {
 		time.Sleep(1 * time.Second)
 	}
 	return nil, fmt.Errorf("Error: Could not open Alpaca stream (max retries exceeded).")
+}
+
+func (s *Stream) SetBaseStream(sUrl string) {
+	s.baseUrl = sUrl
+}
+
+// get new alpaca stream
+func NewAlpacaStream() *Stream {
+	str := &Stream{
+		authenticated: atomic.Value{},
+		handlers:      sync.Map{},
+		baseUrl:       base,
+	}
+	str.authenticated.Store(false)
+	str.closed.Store(false)
+
+	return str
 }
