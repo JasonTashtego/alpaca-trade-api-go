@@ -75,7 +75,7 @@ func (s *Stream) Subscribe(apiKey *common.APIKey, channel string, handler func(m
 		return
 	}
 	s.Do(func() {
-		go s.start()
+		go s.wrappedStartStream()
 	})
 
 	s.handlers.Store(channel, handler)
@@ -160,7 +160,71 @@ func (s *Stream) findHandler(stream string) func(interface{}) {
 	return nil
 }
 
-func (s *Stream) start() {
+func (s *Stream) wrappedStartStream() {
+
+	var retryBackoff = 5
+	var ctr = 1
+	for {
+		log.Printf("alpaca stream read")
+		reconn := s.startWithRecover()
+
+		if reconn {
+			// reconnect loop
+			for {
+				time.Sleep( time.Duration(retryBackoff * ctr) * time.Second)
+
+				log.Printf("alpaca stream reconnect")
+				if err := s.reconnect(); err != nil {
+					log.Printf(err.Error())
+				} else {
+					break
+				}
+				ctr++
+
+				// 2-minute max
+				if ctr > 24 {
+					ctr = 24
+				}
+			}
+		}
+
+	}
+}
+
+func (s *Stream) startWithRecover() bool {
+
+	defer func() {
+
+		if s.conn != nil {
+			_ = s.conn.Close()
+			s.conn = nil
+		}
+		if err := recover(); err != nil {
+			//stack := make([]byte, 8192)
+			//stack = stack[:runtime.Stack(stack, false)]
+			//
+			//var strStack = string(stack)
+			//var stackLines = strings.Split(strStack, "\n")
+			//if len(stackLines) > 0 {
+			//	for _, l := range stackLines {
+			//		var l = strings.TrimSpace(l)
+			//		if len(l) == 0 {
+			//			break
+			//		}
+			//	}
+			//}
+			//
+			//strStack = strings.ReplaceAll(strStack, "\n", "\r\n")
+			//log.Printf(strStack)
+			log.Printf("alpaca stream disconnected.")
+		}
+	}()
+
+	return s.start()
+}
+
+
+func (s *Stream) start() bool {
 	for {
 		msg := ServerMsg{}
 
@@ -206,7 +270,7 @@ func (s *Stream) start() {
 			if websocket.IsCloseError(err) {
 				// if this was a graceful closure, don't reconnect
 				if s.closed.Load().(bool) {
-					return
+					return false
 				}
 			} else {
 				log.Printf("alpaca stream read error (%v)", err)
@@ -214,7 +278,7 @@ func (s *Stream) start() {
 
 			err := s.reconnect()
 			if err != nil {
-				panic(err)
+				return true
 			}
 		}
 	}
