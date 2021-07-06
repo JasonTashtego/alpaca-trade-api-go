@@ -846,7 +846,7 @@ func (c *Client) PlaceOrder(req PlaceOrderRequest) (*Order, error) {
 		if e2 != nil {
 			buf = []byte{}
 		}
-		errNew := errors.New(fmt.Sprintf("-->> JSON In: %s,   %s", string(buf), err.Error()))
+		errNew := errors.New(fmt.Sprintf("JSON In [ %s ], err=%s", string(buf), err.Error()))
 		return nil, errNew
 	}
 
@@ -857,7 +857,7 @@ func (c *Client) PlaceOrder(req PlaceOrderRequest) (*Order, error) {
 		if e2 != nil {
 			buf = []byte{}
 		}
-		errNew := errors.New(fmt.Sprintf("-->> JSON In: %s,   %s", string(buf), err.Error()))
+		errNew := errors.New(fmt.Sprintf("JSON In [ %s ], err=%s", string(buf), err.Error()))
 		return nil, errNew
 	}
 
