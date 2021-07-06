@@ -5,12 +5,16 @@ import (
 	"log"
 )
 
+var (
+	defaultStreamUrl  = "https://api.alpaca.markets"
+)
+
 type XAlpacaStream struct {
 	alpacaStream *Stream
 }
 
 func (xs *XAlpacaStream) Init() {
-	xs.alpacaStream = NewAlpacaStream()
+	xs.alpacaStream = NewAlpacaStream(defaultStreamUrl)
 }
 
 func (xs *XAlpacaStream) SetStreamUrl(streamUrl string) {

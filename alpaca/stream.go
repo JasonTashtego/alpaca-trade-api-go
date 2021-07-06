@@ -444,7 +444,7 @@ func (s *Stream) SetBaseStream(sUrl string) {
 }
 
 // get new alpaca stream
-func NewAlpacaStream() *Stream {
+func NewAlpacaStream(base string) *Stream {
 	str := &Stream{
 		authenticated: atomic.Value{},
 		handlers:      sync.Map{},
