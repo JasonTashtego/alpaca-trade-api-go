@@ -655,6 +655,35 @@ func (c *Client) GetLatestQuote(symbol string) (*v2.Quote, error) {
 	return &latestQuoteResp.Quote, nil
 }
 
+const cryptoPrefix = "v1beta1/crypto"
+
+// GetLatestCryptoQuote returns the latest quote for a given crypto symbol on the given exhange
+func (c *Client) GetLatestCryptoQuote(symbol, exchange string) (*CryptoQuote, error) {
+	u, err := url.Parse(fmt.Sprintf("%s/%s/%s/quotes/latest", dataURL, cryptoPrefix, symbol))
+	if err != nil {
+		return nil, err
+	}
+
+	q := u.Query()
+	q.Set("exchange", exchange)
+	u.RawQuery = q.Encode()
+
+	resp, err := c.get(u)
+	if err != nil {
+		return nil, err
+	}
+
+	var latestQuoteResp latestCryptoQuoteResponse
+
+	if err = unmarshal(resp, &latestQuoteResp); err != nil {
+		return nil, err
+	}
+
+	return &latestQuoteResp.Quote, nil
+}
+
+
+
 // GetSnapshot returns the snapshot for a given symbol
 func (c *Client) GetSnapshot(symbol string) (*v2.Snapshot, error) {
 	u, err := url.Parse(fmt.Sprintf("%s/v2/stocks/%s/snapshot", dataURL, symbol))

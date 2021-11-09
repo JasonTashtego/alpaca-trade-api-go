@@ -475,3 +475,18 @@ func (s *StreamTrade) Time() time.Time {
 	// nanoseconds
 	return time.Unix(0, s.Timestamp)
 }
+
+// CryptoQuote is crypto quote
+type CryptoQuote struct {
+	Timestamp time.Time `json:"t"`
+	Exchange  string    `json:"x"`
+	BidPrice  float64   `json:"bp"`
+	BidSize   float64   `json:"bs"`
+	AskPrice  float64   `json:"ap"`
+	AskSize   float64   `json:"as"`
+}
+
+type latestCryptoQuoteResponse struct {
+	Symbol string      `json:"symbol"`
+	Quote  CryptoQuote `json:"quote"`
+}
