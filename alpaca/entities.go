@@ -264,7 +264,7 @@ type AccountActivity struct {
 	Symbol          string          `json:"symbol"`
 	LeavesQty       decimal.Decimal `json:"leaves_qty"`
 	CumQty          decimal.Decimal `json:"cum_qty"`
-	Date            time.Time       `json:"date"`
+	Date            string 	        `json:"date"`
 	NetAmount       decimal.Decimal `json:"net_amount"`
 	Description     string          `json:"description"`
 	PerShareAmount  decimal.Decimal `json:"per_share_amount"`
