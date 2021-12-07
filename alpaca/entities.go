@@ -35,6 +35,7 @@ type Account struct {
 	LongMarketValue       decimal.Decimal `json:"long_market_value"`
 	ShortMarketValue      decimal.Decimal `json:"short_market_value"`
 	PortfolioValue        decimal.Decimal `json:"portfolio_value"`
+	CryptoStatus		  string		  `json:"crypto_status"`
 }
 
 type Order struct {
