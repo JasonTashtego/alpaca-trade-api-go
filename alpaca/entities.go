@@ -25,6 +25,7 @@ type Account struct {
 	PatternDayTrader      bool            `json:"pattern_day_trader"`
 	DaytradeCount         int64           `json:"daytrade_count"`
 	DaytradingBuyingPower decimal.Decimal `json:"daytrading_buying_power"`
+	NonMarginableBuyingPower decimal.Decimal  `json:"non_marginable_buying_power"`
 	RegTBuyingPower       decimal.Decimal `json:"regt_buying_power"`
 	Equity                decimal.Decimal `json:"equity"`
 	LastEquity            decimal.Decimal `json:"last_equity"`
