@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/alpacahq/alpaca-trade-api-go/marketdata"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -128,6 +129,7 @@ type Client struct {
 
 	base     string
 	lastCall time.Time
+	MdClient marketdata.Client
 }
 
 func (c *Client) SetBaseUrl(b string) {
@@ -141,7 +143,15 @@ func (c *Client) SetDataUrl(d string) {
 // NewClient creates a new Alpaca client with specified
 // credentials
 func NewClient(credentials *common.APIKey) *Client {
-	return &Client{credentials: credentials}
+
+	cln := &Client{credentials: credentials}
+	cln.MdClient = marketdata.NewClient(marketdata.ClientOpts{
+		ApiKey:    credentials.ID,
+		ApiSecret: credentials.Secret,
+		OAuth:     credentials.OAuth,
+	})
+
+	return cln
 }
 
 // GetAccount returns the user's account information.
@@ -346,89 +356,89 @@ func (c *Client) GetPosition(symbol string) (*Position, error) {
 }
 
 // GetAggregates returns the bars for the given symbol, timespan and date-range
-func (c *Client) GetAggregates(symbol, timespan, from, to string) (*Aggregates, error) {
-	u, err := url.Parse(fmt.Sprintf("%s/v1/aggs/ticker/%s/range/1/%s/%s/%s",
-		dataURL, symbol, timespan, from, to))
-	if err != nil {
-		return nil, err
-	}
-
-	q := u.Query()
-
-	q.Set("symbol", symbol)
-	q.Set("timespan", timespan)
-	q.Set("from", from)
-	q.Set("to", to)
-
-	u.RawQuery = q.Encode()
-
-	resp, err := c.get(u)
-	if err != nil {
-		return nil, err
-	}
-
-	aggregate := &Aggregates{}
-
-	if err = unmarshal(resp, &aggregate); err != nil {
-		return nil, err
-	}
-
-	return aggregate, nil
-}
+//func (c *Client) GetAggregates(symbol, timespan, from, to string) (*Aggregates, error) {
+//	u, err := url.Parse(fmt.Sprintf("%s/v1/aggs/ticker/%s/range/1/%s/%s/%s",
+//		dataURL, symbol, timespan, from, to))
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	q := u.Query()
+//
+//	q.Set("symbol", symbol)
+//	q.Set("timespan", timespan)
+//	q.Set("from", from)
+//	q.Set("to", to)
+//
+//	u.RawQuery = q.Encode()
+//
+//	resp, err := c.get(u)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	aggregate := &Aggregates{}
+//
+//	if err = unmarshal(resp, &aggregate); err != nil {
+//		return nil, err
+//	}
+//
+//	return aggregate, nil
+//}
 
 // GetLastQuote returns the last quote for the given symbol
-func (c *Client) GetLastQuote(symbol string) (*LastQuoteResponse, error) {
-	u, err := url.Parse(fmt.Sprintf("%s/v1/last_quote/stocks/%s", dataURL, symbol))
-	if err != nil {
-		return nil, err
-	}
-
-	q := u.Query()
-
-	q.Set("symbol", symbol)
-
-	u.RawQuery = q.Encode()
-
-	resp, err := c.get(u)
-	if err != nil {
-		return nil, err
-	}
-
-	lastQuote := &LastQuoteResponse{}
-
-	if err = unmarshal(resp, &lastQuote); err != nil {
-		return nil, err
-	}
-
-	return lastQuote, nil
-}
+//func (c *Client) GetLastQuote(symbol string) (*LastQuoteResponse, error) {
+//	u, err := url.Parse(fmt.Sprintf("%s/v1/last_quote/stocks/%s", dataURL, symbol))
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	q := u.Query()
+//
+//	q.Set("symbol", symbol)
+//
+//	u.RawQuery = q.Encode()
+//
+//	resp, err := c.get(u)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	lastQuote := &LastQuoteResponse{}
+//
+//	if err = unmarshal(resp, &lastQuote); err != nil {
+//		return nil, err
+//	}
+//
+//	return lastQuote, nil
+//}
 
 // GetLastTrade returns the last trade for the given symbol
-func (c *Client) GetLastTrade(symbol string) (*LastTradeResponse, error) {
-	u, err := url.Parse(fmt.Sprintf("%s/v1/last/stocks/%s", dataURL, symbol))
-	if err != nil {
-		return nil, err
-	}
-
-	q := u.Query()
-
-	q.Set("symbol", symbol)
-
-	u.RawQuery = q.Encode()
-
-	resp, err := c.get(u)
-	if err != nil {
-		return nil, err
-	}
-
-	lastTrade := &LastTradeResponse{}
-
-	if err = unmarshal(resp, &lastTrade); err != nil {
-		return nil, err
-	}
-
-	return lastTrade, nil
-}
+//func (c *Client) GetLastTrade(symbol string) (*LastTradeResponse, error) {
+//	u, err := url.Parse(fmt.Sprintf("%s/v1/last/stocks/%s", dataURL, symbol))
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	q := u.Query()
+//
+//	q.Set("symbol", symbol)
+//
+//	u.RawQuery = q.Encode()
+//
+//	resp, err := c.get(u)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	lastTrade := &LastTradeResponse{}
+//
+//	if err = unmarshal(resp, &lastTrade); err != nil {
+//		return nil, err
+//	}
+//
+//	return lastTrade, nil
+//}
 
 // GetTrades returns a channel that will be populated with the trades for the given symbol
 // that happened between the given start and end times, limited to the given limit.
@@ -681,8 +691,6 @@ func (c *Client) GetLatestCryptoQuote(symbol, exchange string) (*CryptoQuote, er
 
 	return &latestQuoteResp.Quote, nil
 }
-
-
 
 // GetSnapshot returns the snapshot for a given symbol
 func (c *Client) GetSnapshot(symbol string) (*v2.Snapshot, error) {
@@ -1044,56 +1052,56 @@ func (c *Client) GetAsset(symbol string) (*Asset, error) {
 
 // ListBars returns a list of bar lists corresponding to the provided
 // symbol list, and filtered by the provided parameters.
-func (c *Client) ListBars(symbols []string, opts ListBarParams) (map[string][]Bar, error) {
-	vals := url.Values{}
-	vals.Add("symbols", strings.Join(symbols, ","))
-
-	if opts.Timeframe == "" {
-		return nil, fmt.Errorf("timeframe is required for the bars endpoint")
-	}
-
-	if opts.StartDt != nil {
-		vals.Set("start", opts.StartDt.Format(time.RFC3339))
-	}
-
-	if opts.EndDt != nil {
-		vals.Set("end", opts.EndDt.Format(time.RFC3339))
-	}
-
-	if opts.Limit != nil {
-		vals.Set("limit", strconv.FormatInt(int64(*opts.Limit), 10))
-	}
-
-	u, err := url.Parse(fmt.Sprintf("%s/v1/bars/%s?%v", dataURL, opts.Timeframe, vals.Encode()))
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := c.get(u)
-	if err != nil {
-		return nil, err
-	}
-	var bars map[string][]Bar
-
-	if err = unmarshal(resp, &bars); err != nil {
-		return nil, err
-	}
-
-	return bars, nil
-}
+//func (c *Client) ListBars(symbols []string, opts ListBarParams) (map[string][]Bar, error) {
+//	vals := url.Values{}
+//	vals.Add("symbols", strings.Join(symbols, ","))
+//
+//	if opts.Timeframe == "" {
+//		return nil, fmt.Errorf("timeframe is required for the bars endpoint")
+//	}
+//
+//	if opts.StartDt != nil {
+//		vals.Set("start", opts.StartDt.Format(time.RFC3339))
+//	}
+//
+//	if opts.EndDt != nil {
+//		vals.Set("end", opts.EndDt.Format(time.RFC3339))
+//	}
+//
+//	if opts.Limit != nil {
+//		vals.Set("limit", strconv.FormatInt(int64(*opts.Limit), 10))
+//	}
+//
+//	u, err := url.Parse(fmt.Sprintf("%s/v1/bars/%s?%v", dataURL, opts.Timeframe, vals.Encode()))
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	resp, err := c.get(u)
+//	if err != nil {
+//		return nil, err
+//	}
+//	var bars map[string][]Bar
+//
+//	if err = unmarshal(resp, &bars); err != nil {
+//		return nil, err
+//	}
+//
+//	return bars, nil
+//}
 
 // GetSymbolBars is a convenience method for getting the market
 // data for one symbol
-func (c *Client) GetSymbolBars(symbol string, opts ListBarParams) ([]Bar, error) {
-	symbolList := []string{symbol}
-
-	barsMap, err := c.ListBars(symbolList, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	return barsMap[symbol], nil
-}
+//func (c *Client) GetSymbolBars(symbol string, opts ListBarParams) ([]Bar, error) {
+//	symbolList := []string{symbol}
+//
+//	barsMap, err := c.ListBars(symbolList, opts)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return barsMap[symbol], nil
+//}
 
 // GetAccount returns the user's account information
 // using the default Alpaca client.
@@ -1127,20 +1135,20 @@ func ListPositions() ([]Position, error) {
 	return DefaultClient.ListPositions()
 }
 
-// GetAggregates returns the bars for the given symbol, timespan and date-range
-func GetAggregates(symbol, timespan, from, to string) (*Aggregates, error) {
-	return DefaultClient.GetAggregates(symbol, timespan, from, to)
-}
-
-// GetLastQuote returns the last quote for the given symbol
-func GetLastQuote(symbol string) (*LastQuoteResponse, error) {
-	return DefaultClient.GetLastQuote(symbol)
-}
-
-// GetLastTrade returns the last trade for the given symbol
-func GetLastTrade(symbol string) (*LastTradeResponse, error) {
-	return DefaultClient.GetLastTrade(symbol)
-}
+//// GetAggregates returns the bars for the given symbol, timespan and date-range
+//func GetAggregates(symbol, timespan, from, to string) (*Aggregates, error) {
+//	return DefaultClient.GetAggregates(symbol, timespan, from, to)
+//}
+//
+//// GetLastQuote returns the last quote for the given symbol
+//func GetLastQuote(symbol string) (*LastQuoteResponse, error) {
+//	return DefaultClient.GetLastQuote(symbol)
+//}
+//
+//// GetLastTrade returns the last trade for the given symbol
+//func GetLastTrade(symbol string) (*LastTradeResponse, error) {
+//	return DefaultClient.GetLastTrade(symbol)
+//}
 
 // GetTrades returns a channel that will be populated with the trades for the given symbol
 // that happened between the given start and end times, limited to the given limit.
@@ -1254,16 +1262,16 @@ func GetAsset(symbol string) (*Asset, error) {
 // ListBars returns a map of bar lists corresponding to the provided
 // symbol list that is filtered by the provided parameters with the default
 // Alpaca client.
-func ListBars(symbols []string, opts ListBarParams) (map[string][]Bar, error) {
-	return DefaultClient.ListBars(symbols, opts)
-}
+//func ListBars(symbols []string, opts ListBarParams) (map[string][]Bar, error) {
+//	return DefaultClient.ListBars(symbols, opts)
+//}
 
 // GetSymbolBars returns a list of bars corresponding to the provided
 // symbol that is filtered by the provided parameters with the default
 // Alpaca client.
-func GetSymbolBars(symbol string, opts ListBarParams) ([]Bar, error) {
-	return DefaultClient.GetSymbolBars(symbol, opts)
-}
+//func GetSymbolBars(symbol string, opts ListBarParams) ([]Bar, error) {
+//	return DefaultClient.GetSymbolBars(symbol, opts)
+//}
 
 func (c *Client) get(u *url.URL) (*http.Response, error) {
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
