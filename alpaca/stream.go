@@ -279,6 +279,8 @@ func (s *Stream) start() bool {
 			err := s.reconnect()
 			if err != nil {
 				return true
+			} else {
+				log.Printf("alpaca stream reconnected")
 			}
 		}
 	}
