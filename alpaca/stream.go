@@ -168,6 +168,11 @@ func (s *Stream) wrappedStartStream() {
 		log.Printf("alpaca stream read")
 		reconn := s.startWithRecover()
 
+		if s.closed.Load().(bool) {
+			log.Printf("alpaca stream closed")
+			break
+		}
+
 		if reconn {
 			// reconnect loop
 			for {
@@ -187,7 +192,6 @@ func (s *Stream) wrappedStartStream() {
 				}
 			}
 		}
-
 	}
 }
 
@@ -274,6 +278,10 @@ func (s *Stream) start() bool {
 				}
 			} else {
 				log.Printf("alpaca stream read error (%v)", err)
+			}
+
+			if s.closed.Load().(bool) {
+				return false
 			}
 
 			err := s.reconnect()
