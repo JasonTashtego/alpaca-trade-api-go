@@ -119,7 +119,7 @@ type APIError struct {
 	Message string `json:"message"`
 }
 
-func (e *APIError) Error() string {
+func (e APIError) Error() string {
 	return e.Message
 }
 
@@ -138,6 +138,16 @@ func (c *Client) SetBaseUrl(b string) {
 
 func (c *Client) SetDataUrl(d string) {
 	dataURL = d
+}
+
+func (c *Client) UpdateCreds(creds *common.APIKey) {
+	c.credentials = creds
+	
+	c.MdClient.UpdateCreds(marketdata.ClientOpts{
+		ApiKey:    creds.ID,
+		ApiSecret: creds.Secret,
+		OAuth:     creds.OAuth,
+	})
 }
 
 // NewClient creates a new Alpaca client with specified
@@ -1340,6 +1350,9 @@ func verify(resp *http.Response) (err error) {
 		err = json.Unmarshal(body, &apiErr)
 		if err != nil {
 			return errors.New(fmt.Sprintf("--> JSON Marshalling Error: \n\n\n %s, %s", body, err.Error()))
+		}
+		if apiErr.Code == 0 {
+			apiErr.Code = resp.StatusCode
 		}
 		err = &apiErr
 	}

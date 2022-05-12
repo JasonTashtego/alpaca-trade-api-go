@@ -47,6 +47,7 @@ type Client interface {
 	GetLatestCryptoTrade(symbol, exchange string) (*CryptoTrade, error)
 	GetLatestCryptoQuote(symbol, exchange string) (*CryptoQuote, error)
 	GetLatestCryptoXBBO(symbol string, exchanges []string) (*CryptoXBBO, error)
+	UpdateCreds( opts ClientOpts)
 }
 
 // ClientOpts contains options for the alpaca marketdata client.
@@ -98,6 +99,18 @@ func NewClient(opts ClientOpts) Client {
 		opts: opts,
 
 		do: defaultDo,
+	}
+}
+
+func (c *client) UpdateCreds( opts ClientOpts) {
+	if opts.ApiKey == "" {
+		opts.ApiKey = os.Getenv("APCA_API_KEY_ID")
+	}
+	if opts.ApiSecret == "" {
+		opts.ApiSecret = os.Getenv("APCA_API_SECRET_KEY")
+	}
+	if opts.OAuth == "" {
+		opts.OAuth = os.Getenv("APCA_API_OAUTH")
 	}
 }
 
