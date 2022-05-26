@@ -25,10 +25,7 @@ const (
 )
 
 var (
-	// DefaultClient is the default Alpaca client using the
-	// environment variable set credentials
-	DefaultClient = NewClient(common.Credentials())
-	//	base          = "https://api.alpaca.markets"
+	//base          = "https://api.alpaca.markets"
 	dataURL       = "https://data.alpaca.markets"
 	apiVersion    = "v2"
 	clientTimeout = 10 * time.Second
@@ -51,13 +48,10 @@ func defaultDo(c *Client, req *http.Request) (*http.Response, error) {
 	}
 	c.lastCall = time.Now()
 
-	client := &http.Client{
-		Timeout: clientTimeout,
-	}
 	var resp *http.Response
 	var err error
 	for i := 0; ; i++ {
-		resp, err = client.Do(req)
+		resp, err = c.httpClient.Do(req)
 		if err != nil {
 			return nil, err
 		}
@@ -130,6 +124,9 @@ type Client struct {
 	base     string
 	lastCall time.Time
 	MdClient marketdata.Client
+
+	httpClient *http.Client
+	do         func(c *Client, req *http.Request) (*http.Response, error)
 }
 
 func (c *Client) SetBaseUrl(b string) {
@@ -142,7 +139,7 @@ func (c *Client) SetDataUrl(d string) {
 
 func (c *Client) UpdateCreds(creds *common.APIKey) {
 	c.credentials = creds
-	
+
 	c.MdClient.UpdateCreds(marketdata.ClientOpts{
 		ApiKey:    creds.ID,
 		ApiSecret: creds.Secret,
@@ -154,7 +151,15 @@ func (c *Client) UpdateCreds(creds *common.APIKey) {
 // credentials
 func NewClient(credentials *common.APIKey) *Client {
 
-	cln := &Client{credentials: credentials}
+	httpClient := &http.Client{
+		Timeout: clientTimeout,
+	}
+	cln := &Client{
+		credentials: credentials,
+		httpClient:  httpClient,
+		do:          defaultDo,
+	}
+
 	cln.MdClient = marketdata.NewClient(marketdata.ClientOpts{
 		ApiKey:    credentials.ID,
 		ApiSecret: credentials.Secret,
@@ -162,6 +167,10 @@ func NewClient(credentials *common.APIKey) *Client {
 	})
 
 	return cln
+}
+
+func (c *Client) CloseIdleConns() {
+	c.httpClient.CloseIdleConnections()
 }
 
 // GetAccount returns the user's account information.
@@ -1115,35 +1124,35 @@ func (c *Client) GetAsset(symbol string) (*Asset, error) {
 
 // GetAccount returns the user's account information
 // using the default Alpaca client.
-func GetAccount() (*Account, error) {
-	return DefaultClient.GetAccount()
-}
+//func GetAccount() (*Account, error) {
+//	return DefaultClient.GetAccount()
+//}
 
 // GetAccountConfigurations returns the account configs
 // using the default Alpaca client.
-func GetAccountConfigurations() (*AccountConfigurations, error) {
-	return DefaultClient.GetAccountConfigurations()
-}
+//func GetAccountConfigurations() (*AccountConfigurations, error) {
+//	return DefaultClient.GetAccountConfigurations()
+//}
 
 // UpdateAccountConfigurations changes the account configs and returns the
 // new configs using the default Alpaca client
-func UpdateAccountConfigurations(newConfigs AccountConfigurationsRequest) (*AccountConfigurations, error) {
-	return DefaultClient.UpdateAccountConfigurations(newConfigs)
-}
+//func UpdateAccountConfigurations(newConfigs AccountConfigurationsRequest) (*AccountConfigurations, error) {
+//	return DefaultClient.UpdateAccountConfigurations(newConfigs)
+//}
+//
+//func GetAccountActivities(activityType *string, opts *AccountActivitiesRequest) ([]AccountActivity, error) {
+//	return DefaultClient.GetAccountActivities(activityType, opts)
+//}
 
-func GetAccountActivities(activityType *string, opts *AccountActivitiesRequest) ([]AccountActivity, error) {
-	return DefaultClient.GetAccountActivities(activityType, opts)
-}
-
-func GetPortfolioHistory(period *string, timeframe *RangeFreq, dateEnd *time.Time, extendedHours bool) (*PortfolioHistory, error) {
-	return DefaultClient.GetPortfolioHistory(period, timeframe, dateEnd, extendedHours)
-}
+//func GetPortfolioHistory(period *string, timeframe *RangeFreq, dateEnd *time.Time, extendedHours bool) (*PortfolioHistory, error) {
+//	return DefaultClient.GetPortfolioHistory(period, timeframe, dateEnd, extendedHours)
+//}
 
 // ListPositions lists the account's open positions
 // using the default Alpaca client.
-func ListPositions() ([]Position, error) {
-	return DefaultClient.ListPositions()
-}
+//func ListPositions() ([]Position, error) {
+//	return DefaultClient.ListPositions()
+// }
 
 //// GetAggregates returns the bars for the given symbol, timespan and date-range
 //func GetAggregates(symbol, timespan, from, to string) (*Aggregates, error) {
@@ -1162,112 +1171,112 @@ func ListPositions() ([]Position, error) {
 
 // GetTrades returns a channel that will be populated with the trades for the given symbol
 // that happened between the given start and end times, limited to the given limit.
-func GetTrades(symbol string, start, end time.Time, limit int) <-chan v2.TradeItem {
-	return DefaultClient.GetTrades(symbol, start, end, limit)
-}
-
-// GetQuotes returns a channel that will be populated with the quotes for the given symbol
-// that happened between the given start and end times, limited to the given limit.
-func GetQuotes(symbol string, start, end time.Time, limit int) <-chan v2.QuoteItem {
-	return DefaultClient.GetQuotes(symbol, start, end, limit)
-}
-
-// GetBars returns a channel that will be populated with the bars for the given symbol
-// between the given start and end times, limited to the given limit,
-// using the given and timeframe and adjustment.
-func GetBars(
-	symbol string, timeFrame v2.TimeFrame, adjustment v2.Adjustment,
-	start, end time.Time, limit int,
-) <-chan v2.BarItem {
-	return DefaultClient.GetBars(symbol, timeFrame, adjustment, start, end, limit)
-}
-
-// GetLatestTrade returns the latest trade for a given symbol
-func GetLatestTrade(symbol string) (*v2.Trade, error) {
-	return DefaultClient.GetLatestTrade(symbol)
-}
-
-// GetLatestTrade returns the latest quote for a given symbol
-func GetLatestQuote(symbol string) (*v2.Quote, error) {
-	return DefaultClient.GetLatestQuote(symbol)
-}
-
-// GetSnapshot returns the snapshot for a given symbol
-func GetSnapshot(symbol string) (*v2.Snapshot, error) {
-	return DefaultClient.GetSnapshot(symbol)
-}
-
-// GetSnapshots returns the snapshots for a multiple symbols
-func GetSnapshots(symbols []string) (map[string]*v2.Snapshot, error) {
-	return DefaultClient.GetSnapshots(symbols)
-}
-
-// GetPosition returns the account's position for the
-// provided symbol using the default Alpaca client.
-func GetPosition(symbol string) (*Position, error) {
-	return DefaultClient.GetPosition(symbol)
-}
-
-// GetClock returns the current market clock
-// using the default Alpaca client.
-func GetClock() (*Clock, error) {
-	return DefaultClient.GetClock()
-}
-
-// GetCalendar returns the market calendar, sliced by the start
-// and end dates using the default Alpaca client.
-func GetCalendar(start, end *string) ([]CalendarDay, error) {
-	return DefaultClient.GetCalendar(start, end)
-}
-
-// ListOrders returns the list of orders for an account,
-// filtered by the input parameters using the default
-// Alpaca client.
-func ListOrders(status *string, until *time.Time, after *time.Time, limit *int, nested *bool) ([]Order, error) {
-	return DefaultClient.ListOrders(status, until, after, limit, nested, nil)
-}
-
-// PlaceOrder submits an order request to buy or sell an asset
-// with the default Alpaca client.
-func PlaceOrder(req PlaceOrderRequest) (*Order, error) {
-	return DefaultClient.PlaceOrder(req)
-}
-
-// GetOrder returns a single order for the given
-// `orderID` using the default Alpaca client.
-func GetOrder(orderID string) (*Order, error) {
-	return DefaultClient.GetOrder(orderID)
-}
-
-// GetOrderByClientOrderID returns a single order for the given
-// `clientOrderID` using the default Alpaca client.
-func GetOrderByClientOrderID(clientOrderID string) (*Order, error) {
-	return DefaultClient.GetOrderByClientOrderID(clientOrderID)
-}
-
-// ReplaceOrder changes an order by order id
-// using the default Alpaca client.
-func ReplaceOrder(orderID string, req ReplaceOrderRequest) (*Order, error) {
-	return DefaultClient.ReplaceOrder(orderID, req)
-}
-
-// CancelOrder submits a request to cancel an open order with
-// the default Alpaca client.
-func CancelOrder(orderID string) error {
-	return DefaultClient.CancelOrder(orderID)
-}
-
-// ListAssets returns the list of assets, filtered by
-// the input parameters with the default Alpaca client.
-func ListAssets(status *string) ([]Asset, error) {
-	return DefaultClient.ListAssets(status)
-}
-
-// GetAsset returns an asset for the given symbol with
-// the default Alpaca client.
-func GetAsset(symbol string) (*Asset, error) {
-	return DefaultClient.GetAsset(symbol)
-}
+//func GetTrades(symbol string, start, end time.Time, limit int) <-chan v2.TradeItem {
+//	return DefaultClient.GetTrades(symbol, start, end, limit)
+//}
+//
+//// GetQuotes returns a channel that will be populated with the quotes for the given symbol
+//// that happened between the given start and end times, limited to the given limit.
+//func GetQuotes(symbol string, start, end time.Time, limit int) <-chan v2.QuoteItem {
+//	return DefaultClient.GetQuotes(symbol, start, end, limit)
+//}
+//
+//// GetBars returns a channel that will be populated with the bars for the given symbol
+//// between the given start and end times, limited to the given limit,
+//// using the given and timeframe and adjustment.
+//func GetBars(
+//	symbol string, timeFrame v2.TimeFrame, adjustment v2.Adjustment,
+//	start, end time.Time, limit int,
+//) <-chan v2.BarItem {
+//	return DefaultClient.GetBars(symbol, timeFrame, adjustment, start, end, limit)
+//}
+//
+//// GetLatestTrade returns the latest trade for a given symbol
+//func GetLatestTrade(symbol string) (*v2.Trade, error) {
+//	return DefaultClient.GetLatestTrade(symbol)
+//}
+//
+//// GetLatestTrade returns the latest quote for a given symbol
+//func GetLatestQuote(symbol string) (*v2.Quote, error) {
+//	return DefaultClient.GetLatestQuote(symbol)
+//}
+//
+//// GetSnapshot returns the snapshot for a given symbol
+//func GetSnapshot(symbol string) (*v2.Snapshot, error) {
+//	return DefaultClient.GetSnapshot(symbol)
+//}
+//
+//// GetSnapshots returns the snapshots for a multiple symbols
+//func GetSnapshots(symbols []string) (map[string]*v2.Snapshot, error) {
+//	return DefaultClient.GetSnapshots(symbols)
+//}
+//
+//// GetPosition returns the account's position for the
+//// provided symbol using the default Alpaca client.
+//func GetPosition(symbol string) (*Position, error) {
+//	return DefaultClient.GetPosition(symbol)
+//}
+//
+//// GetClock returns the current market clock
+//// using the default Alpaca client.
+//func GetClock() (*Clock, error) {
+//	return DefaultClient.GetClock()
+//}
+//
+//// GetCalendar returns the market calendar, sliced by the start
+//// and end dates using the default Alpaca client.
+//func GetCalendar(start, end *string) ([]CalendarDay, error) {
+//	return DefaultClient.GetCalendar(start, end)
+//}
+//
+//// ListOrders returns the list of orders for an account,
+//// filtered by the input parameters using the default
+//// Alpaca client.
+//func ListOrders(status *string, until *time.Time, after *time.Time, limit *int, nested *bool) ([]Order, error) {
+//	return DefaultClient.ListOrders(status, until, after, limit, nested, nil)
+//}
+//
+//// PlaceOrder submits an order request to buy or sell an asset
+//// with the default Alpaca client.
+//func PlaceOrder(req PlaceOrderRequest) (*Order, error) {
+//	return DefaultClient.PlaceOrder(req)
+//}
+//
+//// GetOrder returns a single order for the given
+//// `orderID` using the default Alpaca client.
+//func GetOrder(orderID string) (*Order, error) {
+//	return DefaultClient.GetOrder(orderID)
+//}
+//
+//// GetOrderByClientOrderID returns a single order for the given
+//// `clientOrderID` using the default Alpaca client.
+//func GetOrderByClientOrderID(clientOrderID string) (*Order, error) {
+//	return DefaultClient.GetOrderByClientOrderID(clientOrderID)
+//}
+//
+//// ReplaceOrder changes an order by order id
+//// using the default Alpaca client.
+//func ReplaceOrder(orderID string, req ReplaceOrderRequest) (*Order, error) {
+//	return DefaultClient.ReplaceOrder(orderID, req)
+//}
+//
+//// CancelOrder submits a request to cancel an open order with
+//// the default Alpaca client.
+//func CancelOrder(orderID string) error {
+//	return DefaultClient.CancelOrder(orderID)
+//}
+//
+//// ListAssets returns the list of assets, filtered by
+//// the input parameters with the default Alpaca client.
+//func ListAssets(status *string) ([]Asset, error) {
+//	return DefaultClient.ListAssets(status)
+//}
+//
+//// GetAsset returns an asset for the given symbol with
+//// the default Alpaca client.
+//func GetAsset(symbol string) (*Asset, error) {
+//	return DefaultClient.GetAsset(symbol)
+//}
 
 // ListBars returns a map of bar lists corresponding to the provided
 // symbol list that is filtered by the provided parameters with the default
