@@ -253,6 +253,10 @@ type AccountConfigurations struct {
 	NoShorting           bool              `json:"no_shorting"`
 	TradeConfirmEmail    TradeConfirmEmail `json:"trade_confirm_email"`
 	TradeSuspendedByUser bool              `json:"trade_suspended_by_user"`
+	FractionalTrading    bool			   `json:"fractional_trading"`
+	MaxMarginMultiplier  int64			    `json:"max_margin_multiplier"`
+	PdtCheck			 string				`json:"pdt_check"`
+	SuspendTrade		 bool				`json:"suspend_trade"`
 }
 
 type AccountActivity struct {
