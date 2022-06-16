@@ -254,7 +254,7 @@ type AccountConfigurations struct {
 	TradeConfirmEmail    TradeConfirmEmail `json:"trade_confirm_email"`
 	TradeSuspendedByUser bool              `json:"trade_suspended_by_user"`
 	FractionalTrading    bool			   `json:"fractional_trading"`
-	MaxMarginMultiplier  int64			    `json:"max_margin_multiplier"`
+	MaxMarginMultiplier  string    	   	 	`json:"max_margin_multiplier"`
 	PdtCheck			 string				`json:"pdt_check"`
 	SuspendTrade		 bool				`json:"suspend_trade"`
 }
