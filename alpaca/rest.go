@@ -348,7 +348,8 @@ func (c *Client) ListPositions() ([]Position, error) {
 }
 
 // GetPosition returns the account's position for the provided symbol.
-func (c *Client) GetPosition(symbol string) (*Position, error) {
+func (c *Client) SGetPosition(symbol string) (*Position, error) {
+
 	u, err := url.Parse(fmt.Sprintf("%s/%s/positions/%s", c.base, apiVersion, symbol))
 	if err != nil {
 		return nil, err
@@ -372,6 +373,39 @@ func (c *Client) GetPosition(symbol string) (*Position, error) {
 	}
 
 	return position, nil
+}
+
+// GetPosition returns the account's position for the provided symbol.
+func (c *Client) GetPosition(symbol string) (*Position, error) {
+
+	// if it appears not to be crypto use old call.
+	if !strings.HasSuffix(symbol, "USD") {
+		return c.SGetPosition(symbol)
+	}
+
+	u, err := url.Parse(fmt.Sprintf("%s/%s/positions", c.base, apiVersion))
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.get(u)
+	if err != nil {
+		return nil, err
+	}
+
+	positions := []Position{}
+
+	if err = unmarshal(resp, &positions); err != nil {
+		return nil, err
+	}
+
+	for _, p := range positions {
+
+		if p.Symbol == symbol {
+			return &p, nil
+		}
+	}
+	return nil, errors.New("position does not exist")
 }
 
 // GetAggregates returns the bars for the given symbol, timespan and date-range
