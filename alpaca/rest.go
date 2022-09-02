@@ -1053,7 +1053,7 @@ func (c *Client) CancelAllOrders() error {
 
 // ListAssets returns the list of assets, filtered by
 // the input parameters.
-func (c *Client) ListAssets(status *string) ([]Asset, error) {
+func (c *Client) ListAssets(status *string, class * string) ([]Asset, error) {
 	// TODO: support different asset classes
 	u, err := url.Parse(fmt.Sprintf("%s/%s/assets", c.base, apiVersion))
 	if err != nil {
@@ -1064,6 +1064,9 @@ func (c *Client) ListAssets(status *string) ([]Asset, error) {
 
 	if status != nil {
 		q.Set("status", *status)
+	}
+	if class != nil {
+		q.Set("asset_class", *class)
 	}
 
 	u.RawQuery = q.Encode()

@@ -8,35 +8,35 @@ import (
 )
 
 type Account struct {
-	ID                    string          `json:"id"`
-	AccountNumber         string          `json:"account_number"`
-	CreatedAt             time.Time       `json:"created_at"`
-	UpdatedAt             time.Time       `json:"updated_at"`
-	DeletedAt             *time.Time      `json:"deleted_at"`
-	Status                string          `json:"status"`
-	Currency              string          `json:"currency"`
-	Cash                  decimal.Decimal `json:"cash"`
-	CashWithdrawable      decimal.Decimal `json:"cash_withdrawable"`
-	TradingBlocked        bool            `json:"trading_blocked"`
-	TransfersBlocked      bool            `json:"transfers_blocked"`
-	AccountBlocked        bool            `json:"account_blocked"`
-	ShortingEnabled       bool            `json:"shorting_enabled"`
-	BuyingPower           decimal.Decimal `json:"buying_power"`
-	PatternDayTrader      bool            `json:"pattern_day_trader"`
-	DaytradeCount         int64           `json:"daytrade_count"`
-	DaytradingBuyingPower decimal.Decimal `json:"daytrading_buying_power"`
-	NonMarginableBuyingPower decimal.Decimal  `json:"non_marginable_buying_power"`
-	RegTBuyingPower       decimal.Decimal `json:"regt_buying_power"`
-	Equity                decimal.Decimal `json:"equity"`
-	LastEquity            decimal.Decimal `json:"last_equity"`
-	Multiplier            string          `json:"multiplier"`
-	InitialMargin         decimal.Decimal `json:"initial_margin"`
-	MaintenanceMargin     decimal.Decimal `json:"maintenance_margin"`
-	LastMaintenanceMargin decimal.Decimal `json:"last_maintenance_margin"`
-	LongMarketValue       decimal.Decimal `json:"long_market_value"`
-	ShortMarketValue      decimal.Decimal `json:"short_market_value"`
-	PortfolioValue        decimal.Decimal `json:"portfolio_value"`
-	CryptoStatus		  string		  `json:"crypto_status"`
+	ID                       string          `json:"id"`
+	AccountNumber            string          `json:"account_number"`
+	CreatedAt                time.Time       `json:"created_at"`
+	UpdatedAt                time.Time       `json:"updated_at"`
+	DeletedAt                *time.Time      `json:"deleted_at"`
+	Status                   string          `json:"status"`
+	Currency                 string          `json:"currency"`
+	Cash                     decimal.Decimal `json:"cash"`
+	CashWithdrawable         decimal.Decimal `json:"cash_withdrawable"`
+	TradingBlocked           bool            `json:"trading_blocked"`
+	TransfersBlocked         bool            `json:"transfers_blocked"`
+	AccountBlocked           bool            `json:"account_blocked"`
+	ShortingEnabled          bool            `json:"shorting_enabled"`
+	BuyingPower              decimal.Decimal `json:"buying_power"`
+	PatternDayTrader         bool            `json:"pattern_day_trader"`
+	DaytradeCount            int64           `json:"daytrade_count"`
+	DaytradingBuyingPower    decimal.Decimal `json:"daytrading_buying_power"`
+	NonMarginableBuyingPower decimal.Decimal `json:"non_marginable_buying_power"`
+	RegTBuyingPower          decimal.Decimal `json:"regt_buying_power"`
+	Equity                   decimal.Decimal `json:"equity"`
+	LastEquity               decimal.Decimal `json:"last_equity"`
+	Multiplier               string          `json:"multiplier"`
+	InitialMargin            decimal.Decimal `json:"initial_margin"`
+	MaintenanceMargin        decimal.Decimal `json:"maintenance_margin"`
+	LastMaintenanceMargin    decimal.Decimal `json:"last_maintenance_margin"`
+	LongMarketValue          decimal.Decimal `json:"long_market_value"`
+	ShortMarketValue         decimal.Decimal `json:"short_market_value"`
+	PortfolioValue           decimal.Decimal `json:"portfolio_value"`
+	CryptoStatus             string          `json:"crypto_status"`
 }
 
 type Order struct {
@@ -92,16 +92,21 @@ type Position struct {
 }
 
 type Asset struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	Exchange     string `json:"exchange"`
-	Class        string `json:"asset_class"`
-	Symbol       string `json:"symbol"`
-	Status       string `json:"status"`
-	Tradable     bool   `json:"tradable"`
-	Marginable   bool   `json:"marginable"`
-	Shortable    bool   `json:"shortable"`
-	EasyToBorrow bool   `json:"easy_to_borrow"`
+	ID             string          `json:"id"`
+	Name           string          `json:"name"`
+	Exchange       string          `json:"exchange"`
+	Class          string          `json:"asset_class"`
+	Symbol         string          `json:"symbol"`
+	Status         string          `json:"status"`
+	Tradable       bool            `json:"tradable"`
+	Marginable     bool            `json:"marginable"`
+	Shortable      bool            `json:"shortable"`
+	EasyToBorrow   bool            `json:"easy_to_borrow"`
+	Fractionable   bool            `json:"fractionable"`
+	MaintMarginReq decimal.Decimal `json:"maintenance_margin_requirement"`
+	MinOrderSize   decimal.Decimal `json:"min_order_size"`
+	MinTradeInc    decimal.Decimal `json:"min_trade_increment"`
+	PriceIncrement decimal.Decimal `json:"price_increment"`
 }
 
 type Fundamental struct {
@@ -253,10 +258,10 @@ type AccountConfigurations struct {
 	NoShorting           bool              `json:"no_shorting"`
 	TradeConfirmEmail    TradeConfirmEmail `json:"trade_confirm_email"`
 	TradeSuspendedByUser bool              `json:"trade_suspended_by_user"`
-	FractionalTrading    bool			   `json:"fractional_trading"`
-	MaxMarginMultiplier  string    	   	 	`json:"max_margin_multiplier"`
-	PdtCheck			 string				`json:"pdt_check"`
-	SuspendTrade		 bool				`json:"suspend_trade"`
+	FractionalTrading    bool              `json:"fractional_trading"`
+	MaxMarginMultiplier  string            `json:"max_margin_multiplier"`
+	PdtCheck             string            `json:"pdt_check"`
+	SuspendTrade         bool              `json:"suspend_trade"`
 }
 
 type AccountActivity struct {
@@ -270,7 +275,7 @@ type AccountActivity struct {
 	Symbol          string          `json:"symbol"`
 	LeavesQty       decimal.Decimal `json:"leaves_qty"`
 	CumQty          decimal.Decimal `json:"cum_qty"`
-	Date            string 	        `json:"date"`
+	Date            string          `json:"date"`
 	NetAmount       decimal.Decimal `json:"net_amount"`
 	Description     string          `json:"description"`
 	PerShareAmount  decimal.Decimal `json:"per_share_amount"`
