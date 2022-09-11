@@ -291,8 +291,8 @@ func (s *datav2stream) doReadForever() {
 			//
 			//strStack = strings.ReplaceAll(strStack, "\n", "\r\n")
 			//log.Printf(strStack)
-			log.Printf("v2 stream disconnected.")
 		}
+		log.Printf("v2 stream disconnected.")
 	}()
 
 	atomic.StoreInt32(&s.runPing, 1)
@@ -349,14 +349,11 @@ func (s *datav2stream) readForever() {
 				if s.closed.Load().(bool) {
 					return
 				}
-			} else {
-				log.Printf("alpaca stream read error (%v)", err)
 			}
-
-			err := s.connect()
-			if err != nil {
-				panic(err)
-			}
+			// Otherwise, log this, and bounce this out,
+			// let it retry above with backoff.
+			log.Printf("alpaca stream read error (%v)", err)
+			panic(err)
 		}
 		if msgType != websocket.MessageBinary {
 			continue
