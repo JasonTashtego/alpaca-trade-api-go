@@ -11,20 +11,29 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"time"
 )
 
 // StreamTradeUpdates streams the trade updates of the account. It blocks and keeps calling the handler
 // function for each trade update until the context is cancelled.
 func (c *Client) StreamTradeUpdates(ctx context.Context, handler func(TradeUpdate)) error {
+	var proxyFunc func(*http.Request) (*url.URL, error)
+	proxyUrlVal := ctx.Value("proxy")
+	if proxyUrlVal != nil {
+		proxyFunc = http.ProxyURL(proxyUrlVal.(*url.URL))
+	}
+
 	transport := http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			return net.DialTimeout(network, addr, 5*time.Second)
 		},
+		Proxy: proxyFunc,
 	}
 	client := http.Client{
 		Transport: &transport,
 	}
+
 	req, err := http.NewRequestWithContext(ctx, "GET", c.base+"/events/trades", nil)
 	if err != nil {
 		return err
