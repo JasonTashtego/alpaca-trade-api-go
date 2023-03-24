@@ -133,7 +133,7 @@ type Client struct {
 
 	base     string
 	lastCall time.Time
-	MdClient marketdata.Client
+	MdClient *marketdata.Client
 
 	httpClient *http.Client
 	do         func(c *Client, req *http.Request) (*http.Response, error)
@@ -151,8 +151,8 @@ func (c *Client) UpdateCreds(creds *common.APIKey) {
 	c.credentials = creds
 
 	c.MdClient.UpdateCreds(marketdata.ClientOpts{
-		ApiKey:    creds.ID,
-		ApiSecret: creds.Secret,
+		APIKey:    creds.ID,
+		APISecret: creds.Secret,
 		OAuth:     creds.OAuth,
 	})
 }
@@ -171,8 +171,8 @@ func NewClient(credentials *common.APIKey) *Client {
 	}
 
 	cln.MdClient = marketdata.NewClient(marketdata.ClientOpts{
-		ApiKey:    credentials.ID,
-		ApiSecret: credentials.Secret,
+		APIKey:    credentials.ID,
+		APISecret: credentials.Secret,
 		OAuth:     credentials.OAuth,
 	})
 
@@ -728,33 +728,6 @@ func (c *Client) GetLatestQuote(symbol string) (*v2.Quote, error) {
 	return &latestQuoteResp.Quote, nil
 }
 
-const cryptoPrefix = "v1beta1/crypto"
-
-// GetLatestCryptoQuote returns the latest quote for a given crypto symbol on the given exhange
-func (c *Client) GetLatestCryptoQuote(symbol, exchange string) (*CryptoQuote, error) {
-	u, err := url.Parse(fmt.Sprintf("%s/%s/%s/quotes/latest", dataURL, cryptoPrefix, symbol))
-	if err != nil {
-		return nil, err
-	}
-
-	q := u.Query()
-	q.Set("exchange", exchange)
-	u.RawQuery = q.Encode()
-
-	resp, err := c.get(u)
-	if err != nil {
-		return nil, err
-	}
-
-	var latestQuoteResp latestCryptoQuoteResponse
-
-	if err = unmarshal(resp, &latestQuoteResp); err != nil {
-		return nil, err
-	}
-
-	return &latestQuoteResp.Quote, nil
-}
-
 // GetSnapshot returns the snapshot for a given symbol
 func (c *Client) GetSnapshot(symbol string) (*v2.Snapshot, error) {
 	u, err := url.Parse(fmt.Sprintf("%s/v2/stocks/%s/snapshot", dataURL, symbol))
@@ -1063,7 +1036,7 @@ func (c *Client) CancelAllOrders() error {
 
 // ListAssets returns the list of assets, filtered by
 // the input parameters.
-func (c *Client) ListAssets(status *string, class * string) ([]Asset, error) {
+func (c *Client) ListAssets(status *string, class *string) ([]Asset, error) {
 	// TODO: support different asset classes
 	u, err := url.Parse(fmt.Sprintf("%s/%s/assets", c.base, apiVersion))
 	if err != nil {
